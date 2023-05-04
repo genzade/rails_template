@@ -1,0 +1,64 @@
+---
+version: "3.7"
+
+services:
+  app:
+    build:
+      context: .
+
+    command: bin/rails server --port 3000 --binding 0.0.0.0
+    entrypoint: "./bin/docker-entrypoint"
+    image: <%= app_name %>_app
+    ports:
+      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:7000:7000"
+      - "127.0.0.1:5432:5432"
+    depends_on:
+      - db
+      - redis
+    environment:
+      DATABASE_HOST: "db"
+      POSTGRES_USER: "postgres"
+      # # uncomment for production
+      # RAILS_ENV: production
+      RAILS_LOG_TO_STDOUT: 1
+      RAILS_SERVE_STATIC_FILES: 1
+      REDIS_URL: redis://redis:6379/1
+
+    networks:
+      - default
+    volumes:
+      - .:/<%= app_name %>_app
+
+  db:
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+      # See: https://github.com/docker-library/postgres/pull/658. Alternatively,
+      #   - POSTGRES_USER=postgres
+      #   - POSTGRES_PASSWORD=postgres
+    image: postgres:15
+    ports:
+      - "54320:5432"
+    restart: always
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7.0.10-alpine
+    ports:
+      - "6379:6379"
+
+  sidekiq:
+    build: .
+    command: bundle exec sidekiq
+    depends_on:
+      - "db"
+      - "redis"
+    environment:
+      REDIS_URL: redis://redis:6379/12
+    volumes:
+      - ".:/project"
+      - "/project/tmp" # don't mount tmp directory
+
+volumes:
+  db_data:
