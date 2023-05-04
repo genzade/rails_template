@@ -10,14 +10,6 @@ def source_paths
   [__dir__]
 end
 
-def add_gems
-  say 'Adding some useful gems...', :green
-
-  gem 'devise', '~> 4.9', '>= 4.9.2'
-  gem 'pg', '~> 1.1'
-  gem 'sidekiq', '~> 7.0', '>= 7.0.9'
-end
-
 def setup_config_application
   say 'Setting up config/application.rb...', :green
 
@@ -45,6 +37,14 @@ def setup_config_application
   CONTENT
 
   gsub_file('config/application.rb', target, content)
+end
+
+def add_gems
+  say 'Adding some useful gems...', :green
+
+  gem 'devise', '~> 4.9', '>= 4.9.2'
+  gem 'pg', '~> 1.1'
+  gem 'sidekiq', '~> 7.0', '>= 7.0.9'
 end
 
 def setup_devise
@@ -104,11 +104,7 @@ def setup_sidekiq
     CONTENT
   end
 
-  insert_into_file(
-    routes_file,
-    "require 'sidekiq/web'\n\n",
-    before: 'Rails.application.routes.draw do'
-  )
+  insert_into_file(routes_file, "require 'sidekiq/web'\n\n", before: 'Rails.application.routes.draw do')
 
   content = <<-CONTENT
   authenticate :user, ->(u) { u.admin? } do
@@ -116,31 +112,29 @@ def setup_sidekiq
   end
   CONTENT
 
-  insert_into_file(
-    routes_file,
-    "#{content}\n",
-    after: "Rails.application.routes.draw do\n"
-  )
+  insert_into_file(routes_file, "#{content}\n", after: "Rails.application.routes.draw do\n")
 
-  file('config/initializers/sidekiq.rb', <<~SIDEKIQ)
-    # frozen_string_literal: true
+  create_file('config/initializers/sidekiq.rb') do
+    <<~SIDEKIQ
+      # frozen_string_literal: true
 
-    Sidekiq.configure_server do |config|
-      config.redis = { url: ENV.fetch("REDIS_URL", "redis://localhost:6379/1") }
-    end
+      Sidekiq.configure_server do |config|
+        config.redis = { url: ENV.fetch("REDIS_URL", "redis://localhost:6379/1") }
+      end
 
-    Sidekiq.configure_client do |config|
-      config.redis = { url: ENV.fetch("REDIS_URL", "redis://localhost:6379/1") }
-    end
-  SIDEKIQ
+      Sidekiq.configure_client do |config|
+        config.redis = { url: ENV.fetch("REDIS_URL", "redis://localhost:6379/1") }
+      end
+    SIDEKIQ
+  end
 end
 
 def setup_docker_files
   say 'Setting up Docker files...', :green
 
-  copy_file 'docker_files/docker-entrypoint.sh', 'bin/docker-entrypoint.sh'
-  template 'docker_files/Dockerfile.erb', 'Dockerfile'
-  template 'docker_files/docker-compose.yml.erb', 'docker-compose.yml'
+  copy_file 'templates/docker_files/docker-entrypoint.sh', 'bin/docker-entrypoint.sh'
+  template 'templates/docker_files/Dockerfile.erb', 'Dockerfile'
+  template 'templates/docker_files/docker-compose.yml.erb', 'docker-compose.yml'
 end
 
 source_paths
