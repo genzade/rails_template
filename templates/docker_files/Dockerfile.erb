@@ -4,7 +4,7 @@
 ARG RUBY_VERSION=3.1.2
 FROM registry.docker.com/library/ruby:$RUBY_VERSION-slim as base
 
-ENV APP_PATH /#{app_name}_app
+ENV APP_PATH /<%= app_name %>_app
 ENV RAILS_PORT 3000
 
 # Rails app lives here

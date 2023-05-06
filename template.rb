@@ -132,7 +132,8 @@ end
 def setup_docker_files
   say 'Setting up Docker files...', :green
 
-  copy_file 'templates/docker_files/docker-entrypoint.sh', 'bin/docker-entrypoint.sh'
+  copy_file 'templates/docker_files/docker-entrypoint', 'bin/docker-entrypoint'
+  chmod 'bin/docker-entrypoint', 0o755
   template 'templates/docker_files/Dockerfile.erb', 'Dockerfile'
   template 'templates/docker_files/docker-compose.yml.erb', 'docker-compose.yml'
 end
