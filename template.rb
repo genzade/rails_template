@@ -11,7 +11,7 @@ def source_paths
 end
 
 def setup_config_application
-  say 'Setting up config/application.rb...', :green
+  say('Setting up config/application.rb...', :green)
 
   target = <<-TARGET
     # Don't generate system test files.
@@ -40,23 +40,24 @@ def setup_config_application
 end
 
 def add_gems
-  say 'Adding some useful gems...', :green
+  say('Adding some useful gems...', :green)
 
-  gem 'devise', '~> 4.9', '>= 4.9.2'
-  gem 'pg', '~> 1.1'
-  gem 'sidekiq', '~> 7.0', '>= 7.0.9'
+  gem('devise', '~> 4.9', '>= 4.9.2')
+  gem('pg', '~> 1.1')
+  gem('sidekiq', '~> 7.0', '>= 7.0.9')
 end
 
 def setup_devise
-  say 'Setting up Devise...', :green
+  say('Setting up Devise...', :green)
+
 end
 
 def setup_db
-  say 'Setting up database...', :green
+  say('Setting up database...', :green)
 
   inside 'config' do
-    remove_file 'database.yml'
-    create_file 'database.yml' do
+    remove_file('database.yml')
+    create_file('database.yml') do
       <<~CONTENT
         ---
         default: &default
@@ -66,7 +67,7 @@ def setup_db
           min_messages: warning
           password: <%= ENV.fetch("DATABASE_PASSWORD", "") %>
           pool: <%= ENV.fetch("RAILS_MAX_THREADS", 5) %>
-          port: <%= ENV.fetch("DATABASE_PORT", "5432") %>
+          port: <%= ENV.fetch("DATABASE_PORT", 5432) %>
           timeout: 5000
           username: <%= ENV.fetch("DATABASE_USER", "postgres") %>
 
@@ -83,14 +84,14 @@ def setup_db
           <<: *default
           database: #{app_name}_production
           password: <%= ENV["#{app_name.upcase}_DATABASE_PASSWORD"] %>
-          username: <%= #{app_name} %>
+          username: #{app_name}
       CONTENT
     end
   end
 end
 
 def setup_sidekiq
-  say 'Setting up Sidekiq...', :green
+  say('Setting up Sidekiq...', :green)
 
   routes_file = 'config/routes.rb'
 
@@ -130,12 +131,12 @@ def setup_sidekiq
 end
 
 def setup_docker_files
-  say 'Setting up Docker files...', :green
+  say('Setting up Docker files...', :green)
 
-  copy_file 'templates/docker_files/docker-entrypoint', 'bin/docker-entrypoint'
-  chmod 'bin/docker-entrypoint', 0o755
-  template 'templates/docker_files/Dockerfile.erb', 'Dockerfile'
-  template 'templates/docker_files/docker-compose.yml.erb', 'docker-compose.yml'
+  copy_file('templates/docker_files/docker-entrypoint', 'bin/docker-entrypoint')
+  chmod('bin/docker-entrypoint', 0o755)
+  template('templates/docker_files/Dockerfile.erb', 'Dockerfile')
+  template('templates/docker_files/docker-compose.yml.erb', 'docker-compose.yml')
 end
 
 source_paths
@@ -143,29 +144,29 @@ source_paths
 add_gems
 
 after_bundle do
-  git :init
-  git add: '.'
-  git commit: %( -m 'Initial commit' )
+  git(:init)
+  git(add: '.')
+  git(commit: %( -m 'Initial commit' ))
 
   setup_config_application
 
-  git add: '.'
-  git commit: %( -m 'Configure application settings' )
+  git(add: '.')
+  git(commit: %( -m 'Configure application settings' ))
 
   setup_db
 
-  git add: '.'
-  git commit: %( -m 'Configure database' )
+  git(add: '.')
+  git(commit: %( -m 'Configure database' ))
 
   setup_sidekiq
 
-  git add: '.'
-  git commit: %( -m 'Configure sidekiq' )
+  git(add: '.')
+  git(commit: %( -m 'Configure sidekiq' ))
 
-  setup_docker_files
+  # setup_docker_files
 
-  git add: '.'
-  git commit: %( -m 'Configure docker' )
+  # git(add: '.')
+  # git(commit: %( -m 'Configure docker' ))
 
   setup_devise
 end
