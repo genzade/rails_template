@@ -40,16 +40,9 @@ def setup_config_application
 end
 
 def add_gems
-  say('Adding some useful gems...', :green)
+  say('Overwrite Gemfile with some useful gems...', :green)
 
-  gem('devise', '~> 4.9', '>= 4.9.2')
-  gem('pg', '~> 1.1')
-  gem('sidekiq', '~> 7.0', '>= 7.0.9')
-end
-
-def setup_devise
-  say('Setting up Devise...', :green)
-
+  template 'templates/Gemfile.erb', 'Gemfile', force: true
 end
 
 def setup_db
@@ -98,22 +91,27 @@ def setup_sidekiq
   environment('config.active_job.queue_adapter = :test', env: :test)
 
   insert_into_file('config/application.rb', before: /^  end\n/) do
-    <<-CONTENT
-
-    # set application queue adapter to sidekiq
-    config.active_job.queue_adapter = :sidekiq
+    <<~CONTENT
+      # set application queue adapter to sidekiq
+      config.active_job.queue_adapter = :sidekiq
     CONTENT
   end
 
-  insert_into_file(routes_file, "require 'sidekiq/web'\n\n", before: 'Rails.application.routes.draw do')
+  insert_into_file(routes_file, before: 'Rails.application.routes.draw do') do
+    <<~CONTENT
+      require 'sidekiq/web'
 
-  content = <<-CONTENT
-  authenticate :user, ->(u) { u.admin? } do
-    mount Sidekiq::Web => '/sidekiq'
+    CONTENT
   end
-  CONTENT
 
-  insert_into_file(routes_file, "#{content}\n", after: "Rails.application.routes.draw do\n")
+  insert_into_file(routes_file, after: "Rails.application.routes.draw do\n") do
+    <<~CONTENT
+      authenticate :user, ->(u) { u.admin? } do
+        mount Sidekiq::Web => '/sidekiq'
+      end
+
+    CONTENT
+  end
 
   create_file('config/initializers/sidekiq.rb') do
     <<~SIDEKIQ
@@ -137,6 +135,199 @@ def setup_docker_files
   chmod('bin/docker-entrypoint', 0o755)
   template('templates/docker_files/Dockerfile.erb', 'Dockerfile')
   template('templates/docker_files/docker-compose.yml.erb', 'docker-compose.yml')
+end
+
+def setup_devise
+  say('Setting up Devise...', :green)
+
+  generate('devise:install')
+
+  environment(
+    "config.action_mailer.default_url_options = { host: 'localhost', port: 3000 }",
+    env: 'development'
+  )
+
+  route "root to: 'home#index'"
+
+  generate(
+    :devise,
+    'User',
+    'first_name',
+    'last_name',
+    'username',
+    'admin:boolean'
+  )
+
+  in_root do
+    migration = Dir.glob('db/migrate/*').max_by { |f| File.mtime(f) }
+    gsub_file(migration, /:admin/, ':admin, default: false')
+  end
+
+  generate('devise:views')
+end
+
+def setup_rspec
+  say('Setting up RSpec...', :green)
+
+  generate('rspec:install')
+
+  gsub_file(
+    'spec/rails_helper.rb',
+    "# Dir[Rails.root.join('spec', 'support', '**', '*.rb')].sort.each { |f| require f }"
+  ) do
+    <<~CONTENT
+      Dir[Rails.root.join("spec/support/**/*.rb")].each { |f| require f }
+    CONTENT
+  end
+
+  gsub_file(
+    'spec/rails_helper.rb',
+    '  config.fixture_path = "#{::Rails.root}/spec/fixtures"'
+  ) do
+    <<~CONTENT
+      config.fixture_path = Rails.root.join("spec/fixtures")
+    CONTENT
+  end
+end
+
+def setup_factory_bot
+  say('Setting up FactoryBot...', :green)
+
+  create_file('spec/support/factory_bot.rb') do
+    <<~CONTENT
+      # frozen_string_literal: true
+
+      RSpec.configure do |config|
+        config.include FactoryBot::Syntax::Methods
+      end
+    CONTENT
+  end
+end
+
+def setup_shoulda_matchers
+  say('Setting up Shoulda Matchers...', :green)
+
+  create_file('spec/support/shoulda_matchers.rb') do
+    <<~CONTENT
+      # frozen_string_literal: true
+
+      Shoulda::Matchers.configure do |config|
+        config.integrate do |with|
+          with.test_framework :rspec
+          with.library :rails
+        end
+      end
+    CONTENT
+  end
+end
+
+def setup_capybara
+  say('Setting up Capybara...', :green)
+
+  create_file('spec/support/capybara.rb') do
+    <<~CONTENT
+      # frozen_string_literal: true
+
+      require "capybara/rails"
+      require "capybara/rspec"
+
+      RSpec.configure do |config|
+        config.before(:each, type: :system) do
+          # not needed if using selenium
+          driven_by(:rack_test)
+        end
+      end
+    CONTENT
+  end
+end
+
+def setup_layouts
+  application_layout = <<~LAYOUT
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>
+          <% if content_for?(:page_title) %>
+            <%= content_for(:page_title) %>
+          <% else %>
+            #{app_name.camelize}
+          <% end %>
+        </title>
+
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+
+        <%= csrf_meta_tags %>
+        <%= csp_meta_tag %>
+
+        <%= stylesheet_link_tag "tailwind", "inter-font", "data-turbo-track": "reload" %>
+        <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
+
+        <%= javascript_importmap_tags %>
+      </head>
+
+      <body>
+        <main class="container mx-auto mt-28 px-5 flex">
+          <%= yield %>
+        </main>
+      </body>
+    </html>
+  LAYOUT
+
+  remove_file('app/views/layouts/application.html.erb')
+  create_file('app/views/layouts/application.html.erb', application_layout)
+end
+
+def setup_models
+  say('Setting up model + spec...', :green)
+
+  create_file('app/models/user.rb', force: true) do
+    <<~CONTENT
+      # frozen_string_literal: true
+
+      class User < ApplicationRecord
+        # Include default devise modules. Others available are:
+        # :confirmable, :lockable, :timeoutable, :trackable and :omniauthable
+        devise :database_authenticatable, :registerable, :recoverable, :rememberable, :validatable
+
+        validates :username, presence: true
+        validates :email, presence: true
+      end
+    CONTENT
+  end
+
+  create_file('spec/models/user_spec.rb', force: true) do
+    <<~CONTENT
+      # frozen_string_literal: true
+
+      require "rails_helper"
+
+      RSpec.describe User, type: :model do
+        describe "validations" do
+          it { is_expected.to validate_presence_of(:username) }
+          it { is_expected.to validate_presence_of(:email) }
+        end
+      end
+    CONTENT
+  end
+end
+
+def setup_system_specs
+  say('Setting some basic system specs...', :green)
+
+  template(
+    'templates/spec/system/users/logins_spec.rb',
+    'spec/system/users/logins_spec.rb'
+  )
+  template(
+    'templates/spec/system/users/registrations_spec.rb',
+    'spec/system/users/registrations_spec.rb'
+  )
+end
+
+def setup_rubocop
+  say('Setting up Rubocop...', :green)
+
+  template('templates/rubocop/rubocop_config.yml.erb', '.rubocop.yml')
 end
 
 source_paths
@@ -169,4 +360,60 @@ after_bundle do
   # git(commit: %( -m 'Configure docker' ))
 
   setup_devise
+
+  git(add: '.')
+  git(commit: %( -m 'Configure devise' ))
+
+  generate(:controller, 'Home', 'index')
+  generate(:views, 'Home', 'index')
+
+  git(add: '.')
+  git(commit: %( -m 'Scaffold home' ))
+
+  setup_rspec
+
+  git(add: '.')
+  git(commit: %( -m 'Configure RSpec' ))
+
+  setup_system_specs
+
+  git(add: '.')
+  git(commit: %( -m 'Add user system specs' ))
+
+  setup_factory_bot
+
+  git(add: '.')
+  git(commit: %( -m 'Configure FactoryBot for rails' ))
+
+  setup_shoulda_matchers
+
+  git(add: '.')
+  git(commit: %( -m 'Configure shoulda-matchers' ))
+
+  setup_capybara
+
+  git(add: '.')
+  git(commit: %( -m 'Configure Capybara' ))
+
+  setup_layouts
+
+  git(add: '.')
+  git(commit: %( -m 'Tweak application layout' ))
+
+  setup_models
+
+  git(add: '.')
+  git(commit: %( -m 'Tweak Models' ))
+
+  setup_rubocop
+
+  git(add: '.')
+  git(commit: %( -m 'Configure Rubocop' ))
+
+  run('bundle exec rubocop -A')
+
+  git(add: '.')
+  git(commit: %( -m 'Run Rubocop in repo' ))
+
+  say('Done! 🎉', :green)
 end
