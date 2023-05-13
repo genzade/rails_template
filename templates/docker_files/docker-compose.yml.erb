@@ -32,10 +32,10 @@ services:
 
   db:
     environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
       # See: https://github.com/docker-library/postgres/pull/658. Alternatively,
-      # POSTGRES_HOST_AUTH_METHOD: trust
-      DATABASE_HOST: "db"
-      POSTGRES_USER: "postgres"
+      # DATABASE_HOST: "db"
+      # POSTGRES_USER: "postgres"
     image: postgres:15
     ports:
       - "54320:5432"
