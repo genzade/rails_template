@@ -13,6 +13,7 @@ AllCops:
   Exclude:
     - "**/tmp/**/*"
     - "**/templates/**/*"
+    - "bin/**/*"
     - "db/**/*"
     - "**/vendor/**/*"
     - "actionpack/lib/action_dispatch/journey/parser.rb"
@@ -115,6 +116,10 @@ Layout/IndentationWidth:
   Enabled: true
 
 Layout/LeadingCommentSpace:
+  Enabled: true
+
+Layout/MultilineMethodCallIndentation:
+  EnforcedStyle: indented
   Enabled: true
 
 Layout/SpaceAfterColon:
