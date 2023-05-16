@@ -39,6 +39,27 @@ def setup_config_application
   gsub_file('config/application.rb', target, content)
 end
 
+def setup_bullet
+  say('Setting up Bullet...', :green)
+
+  insert_into_file(
+    'config/environments/development.rb',
+    after: "Rails.application.configure do\n"
+  ) do
+    <<~CONTENT
+      # Bullet config
+      config.after_initialize do
+        Bullet.enable        = true
+        Bullet.alert         = true
+        Bullet.bullet_logger = true
+        Bullet.console       = true
+        Bullet.rails_logger  = true
+        Bullet.add_footer    = true
+      end
+    CONTENT
+  end
+end
+
 def add_gems
   say('Overwrite Gemfile with some useful gems...', :green)
 
@@ -161,6 +182,15 @@ def setup_devise
   in_root do
     migration = Dir.glob('db/migrate/*').max_by { |f| File.mtime(f) }
     gsub_file(migration, /:admin/, ':admin, default: false')
+  end
+
+  insert_into_file("spec/factories/users.rb", after: "factory :user do\n") do
+    <<~CONTENT
+      first_name { Faker::Name.first_name }
+      last_name { Faker::Name.last_name }
+      username { Faker::Internet.username }
+      admin { false }
+    CONTENT
   end
 
   generate('devise:views')
@@ -314,6 +344,8 @@ end
 def setup_system_specs
   say('Setting some basic system specs...', :green)
 
+  # create_file('spec/system/.keep')
+
   template(
     'templates/spec/system/users/logins_spec.rb',
     'spec/system/users/logins_spec.rb'
@@ -330,6 +362,37 @@ def setup_rubocop
   template('templates/rubocop/rubocop_config.yml.erb', '.rubocop.yml')
 end
 
+def setup_overcommit
+  say('Setting up Overcommit...', :green)
+
+  run 'overcommit --install'
+  create_file(".overcommit.yml", force: true) do
+    <<~CONTENT
+      #   TrailingWhitespace:
+      #     enabled: true
+      #     exclude:
+      #       - "**/db/structure.sql" # Ignore trailing whitespace in generated files
+
+      # PostCheckout:
+      #   ALL: # Special hook name that customizes all hooks of this type
+      #     quiet: true # Change all post-checkout hooks to only display output on failure
+
+      #   IndexTags:
+      #     enabled: true # Generate a tags file with `ctags` each time HEAD changes
+
+      ---
+      PreCommit:
+        RuboCop:
+          enabled: true
+          command: ["bundle", "exec", "rubocop"]
+          on_warn: fail
+          problem_on_unmodified_line: ignore # run RuboCop only on
+    CONTENT
+  end
+
+  run 'overcommit --sign'
+end
+
 source_paths
 
 add_gems
@@ -344,6 +407,11 @@ after_bundle do
   git(add: '.')
   git(commit: %( -m 'Configure application settings' ))
 
+  setup_bullet
+
+  git(add: '.')
+  git(commit: %( -m 'Configure bullet' ))
+
   setup_db
 
   git(add: '.')
@@ -354,10 +422,10 @@ after_bundle do
   git(add: '.')
   git(commit: %( -m 'Configure sidekiq' ))
 
-  # setup_docker_files
+  setup_docker_files
 
-  # git(add: '.')
-  # git(commit: %( -m 'Configure docker' ))
+  git(add: '.')
+  git(commit: %( -m 'Configure docker' ))
 
   setup_devise
 
@@ -409,6 +477,11 @@ after_bundle do
 
   git(add: '.')
   git(commit: %( -m 'Configure Rubocop' ))
+
+  setup_overcommit
+
+  git(add: '.')
+  git(commit: %( -m 'Configure overcommit' ))
 
   run('bundle exec rubocop -A')
 
