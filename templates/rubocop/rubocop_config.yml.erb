@@ -18,6 +18,12 @@ AllCops:
     - "**/vendor/**/*"
     - "actionpack/lib/action_dispatch/journey/parser.rb"
     - "**/node_modules/**/*"
+    - "config/initializers/*"
+
+Metrics/BlockLength:
+  Enabled: true
+  Exclude:
+    - "config/**/*"
 
 Rails/IndexBy:
   Enabled: true
