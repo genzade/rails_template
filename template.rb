@@ -63,7 +63,7 @@ end
 def add_gems
   say('Overwrite Gemfile with some useful gems...', :green)
 
-  template 'templates/Gemfile.erb', 'Gemfile', force: true
+  template('templates/Gemfile.erb', 'Gemfile', force: true)
 end
 
 def setup_db
@@ -393,6 +393,16 @@ def setup_overcommit
   run 'overcommit --sign'
 end
 
+def setup_annotate
+  generate('annotate:install')
+
+  template(
+    'templates/annotate/annotate_rake_tak.rb',
+    'lib/tasks/auto_annotate_models.rake',
+    force: true
+  )
+end
+
 source_paths
 
 add_gems
@@ -484,6 +494,11 @@ after_bundle do
   git(commit: %( -m 'Configure overcommit' ))
 
   run('bundle exec rubocop -A')
+
+  setup_annotate
+
+  git(add: '.')
+  git(commit: %( -m 'Configure Annotate' ))
 
   git(add: '.')
   git(commit: %( -m 'Run Rubocop in repo' ))
