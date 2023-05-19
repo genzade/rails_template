@@ -408,6 +408,8 @@ source_paths
 add_gems
 
 after_bundle do
+  template('templates/asdf/tool-versions.erb', '.tool-versions')
+
   git(:init)
   git(add: '.')
   git(commit: %( -m 'Initial commit' ))
