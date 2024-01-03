@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #   Usage:
 #     rails new myapp
 #       --database=postgresql \
@@ -184,7 +186,7 @@ def setup_devise
     gsub_file(migration, /:admin/, ':admin, default: false')
   end
 
-  insert_into_file("spec/factories/users.rb", after: "factory :user do\n") do
+  insert_into_file('spec/factories/users.rb', after: "factory :user do\n") do
     <<~CONTENT
       first_name { Faker::Name.first_name }
       last_name { Faker::Name.last_name }
@@ -366,7 +368,7 @@ def setup_overcommit
   say('Setting up Overcommit...', :green)
 
   run 'overcommit --install'
-  create_file(".overcommit.yml", force: true) do
+  create_file('.overcommit.yml', force: true) do
     <<~CONTENT
       #   TrailingWhitespace:
       #     enabled: true
